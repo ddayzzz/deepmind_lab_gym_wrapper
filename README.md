@@ -15,33 +15,17 @@ env = gym.make('DeepmindLabSeekavoidArena01-v0')
 observation = env.reset()
 ```
 
-## Enable some useful outputs:
-
-```python
-import gym
-import deepmind_lab_as_gym
-
-env = gym.make('DeepmindLabSeekavoidArena01-v0', enable_velocity=True)  # output velocity
-
-# Use the environment
-observation = env.reset()  # Note that observation is a gym's Dict instance that contains both RGB and velocity outputs
-```
-
 ## Optional arguments
 
-Different arguments for extra observation enables different observation outputs which is mapped by the corresponding key name 
-
+The following table shows that three observations are available in dict object named `info` field when call `step(action)`
 
 Optional Arguments|Effects|Extra observation key name(s)
 -|-|-
-frame_skip|Please refer to Deepmind lab Python API|-
-seed|Please refer to Deepmind lab Python API|-
 enable_velocity|Output agent's current velocity|**velocity**
 enable_top_down_view|Output debug top down view|**top_down** and **word_position**
 enable_depth|Depth channel|**depth**
-top_down_width|[Debug observation](https://github.com/deepmind/lab/blob/master/docs/users/observations.md#debug-observations-player-only)|-
-top_down_height|[Debug observation](https://github.com/deepmind/lab/blob/master/docs/users/observations.md#debug-observations-player-only)|-
 
+You can also specify other arguments when call `gym.make` and their usage can be found in Deepmind lab documents.
 ## Action and observation space:
 
 ```python
@@ -49,15 +33,15 @@ env = gym.make('DeepmindLabNavMazeStatic01-v0', enable_velocity=True, enable_top
 ```
 Action space is `Discrete(6)`
 
-Observation space is `Dict(depth:Box(84, 84), rgb:Box(84, 84, 3), top_down:Box(160, 160, 3), velocity:Box(1, 6), word_position:Box(1, 3))`
+Observation space is `Box(84,84,3), uint8`
 
-Key name|observation
+Key name in `info`|observation
 -|-
 velocity|`Box(1,6), float`. I concatenate `VEL.TRANS` and `VEL.ROT` from the inner observation output.
 top_down|`Box(top_down_width, top_down_height, 3)`, `uint8`. It comes from a debug observation named `DEBUG.CAMERA.TOP_DOWN`
 word_position|`Box(1, 3), float` from `DEBUG.POS.TRANS`
 depth|`Box(84,84), uint8`. I slice the inner observation `RGBD_INTERLEAVED` at last axis
-rgb|`Box(84,84,3), uint8`. It the basic observation that can be represent as curret state of the player/agent.
+
 
 ## Support environments
 
@@ -78,6 +62,7 @@ rgb|`Box(84,84,3), uint8`. It the basic observation that can be represent as cur
 
 ```shell script
 python setup.py develop  # for development
+python setup.py install  # for users
 ```
 
 # Thanks

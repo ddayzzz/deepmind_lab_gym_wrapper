@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import gym
 from gym import spaces
+from gym.utils import seeding
 import numpy as np
 import deepmind_lab
 
@@ -24,13 +25,13 @@ ACTION_LIST = [
 ]
 DEFAULT_ACTION = _action(0, 0, 0, 0, 0, 0, 0)
 
+
 class DeepmindLabEnvironment(gym.Env):
     metadata = {'render.modes': ['rgb_array', 'human']}
 
     def __init__(self,
                  level,
                  frame_skip=4,
-                 seed=None,
                  enable_velocity=False,
                  enable_top_down_view=False,
                  top_down_width=160,
@@ -41,7 +42,6 @@ class DeepmindLabEnvironment(gym.Env):
 
         :param level: level for deepmind lab
         :param frame_skip:
-        :param seed:
         :param enable_velocity:
         :param enable_top_down_view:
         :param top_down_width:
@@ -50,19 +50,20 @@ class DeepmindLabEnvironment(gym.Env):
         """
         super(DeepmindLabEnvironment, self).__init__()
         # 相关的属性
-        self.fixed_seed = seed
         self.level = level
         self.viewer = None
         self.enable_top_down_view = enable_top_down_view
-        self.enable_vel = enable_velocity
-        self.frame_skip = frame_skip
+        self.enable_velocity = enable_velocity
         self.enable_depth = enable_depth
+        self.frame_skip = frame_skip
+
         # check arguments is current?
         # config the observation_space
-        basic_obs = [
-            'RGB_INTERLEAVED'
-        ]
-
+        basic_obs = []
+        if enable_depth:
+            basic_obs.append('RGBD_INTERLEAVED')
+        else:
+            basic_obs.append('RGB_INTERLEAVED')
         config = {
             'fps': str(60),
             'width': str(84),
@@ -72,9 +73,6 @@ class DeepmindLabEnvironment(gym.Env):
             basic_obs.extend(['DEBUG.CAMERA.TOP_DOWN', 'DEBUG.POS.TRANS', ])
             config.update(maxAltCameraWidth=str(top_down_width), maxAltCameraHeight=str(top_down_height),
                           hasAltCameras='true')
-        if enable_depth:
-            basic_obs.append('RGBD_INTERLEAVED')
-            # del basic_obs[0]  # todo i can just use the RGBD for RGB output
         if enable_velocity:
             basic_obs.extend(['VEL.TRANS', 'VEL.ROT'])  # 速度
 
@@ -85,39 +83,31 @@ class DeepmindLabEnvironment(gym.Env):
         # action_space
         self.action_space = gym.spaces.Discrete(len(ACTION_LIST))
         # observation_space
-        obs_spaces = {'rgb': spaces.Box(0, 255, shape=[84, 84, 3], dtype=np.uint8)}
-
-        if enable_top_down_view:
-            # top_down = [w, h, 3]
-            # word_pos = [x, y, z]: double
-            obs_spaces['top_down'] = spaces.Box(0, 255, shape=[top_down_width, top_down_height, 3], dtype=np.uint8)
-            obs_spaces['word_position'] = spaces.Box(low=0.0, high=np.finfo(np.float).max, shape=[1, 3], dtype=np.float)
-        if enable_depth:
-            obs_spaces['depth'] = spaces.Box(0, 255, shape=[84, 84], dtype=np.uint8)
-        if enable_velocity:
-            obs_spaces['velocity'] = spaces.Box(0.0, high=np.finfo(np.float).max, shape=[1, 6], dtype=np.float)
-
-        self.observation_space = spaces.Dict(spaces=obs_spaces)
+        self.observation_space = spaces.Box(0, 255, shape=[84, 84, 3], dtype=np.uint8)
+        #
+        self.last_observation = None
 
     def reset(self, **kwargs):
-        self.lab.reset(seed=self.fixed_seed)
+        self.lab.reset()
         obs = self.lab.observations()
-        state = self._get_state(obs)
-        return state
+        self.last_observation, _ = self._get_state(obs)
+        return self.last_observation
 
     def _get_state(self, obs):
-        returned = dict(rgb=obs['RGB_INTERLEAVED'])
+        returned = dict()
+        if self.enable_depth:
+            rgb_state = obs['RGBD_INTERLEAVED'][:, :, :3]
+            returned['depth'] = obs['RGBD_INTERLEAVED'][:, :, 3]
+        else:
+            rgb_state = obs['RGB_INTERLEAVED']
 
         if self.enable_top_down_view:
             returned['top_down'] = obs['DEBUG.CAMERA.TOP_DOWN']
             returned['word_position'] = obs['DEBUG.POS.TRANS']
 
-        if self.enable_depth:
-            returned['depth'] = obs['RGBD_INTERLEAVED'][:, :, 3]
-
-        if self.enable_vel:
+        if self.enable_velocity:
             returned['velocity'] = np.concatenate([obs['VEL.TRANS'], obs['VEL.ROT']])
-        return returned
+        return rgb_state, returned
 
     def step(self, action):
         """
@@ -126,7 +116,7 @@ class DeepmindLabEnvironment(gym.Env):
         :return: state,
         """
 
-        if action < 0:
+        if action < 0 or action >= len(ACTION_LIST):
             real_action = DEFAULT_ACTION
         else:
             real_action = ACTION_LIST[action]
@@ -135,17 +125,13 @@ class DeepmindLabEnvironment(gym.Env):
         # obs, reward, terminated = self.connection.recv()
         reward = self.lab.step(real_action, num_steps=self.frame_skip)
         terminated = not self.lab.is_running()
-        if not terminated:
-            obs = self.lab.observations()
-        else:
-            obs = 0
-        # step 返回的信息
         if terminated:
-            state = None
+            state, info = np.copy(self.last_observation), dict()  # just use the last observation
         else:
-            state = self._get_state(obs=obs)
-
-        return state, reward, terminated, None
+            obs = self.lab.observations()
+            state, info = self._get_state(obs=obs)
+            self.last_observation = state
+        return state, reward, terminated, info
 
     def close(self):
         self.lab.close()
@@ -164,4 +150,14 @@ class DeepmindLabEnvironment(gym.Env):
             return self.viewer.isopen
         else:
             super(DeepmindLabEnvironment, self).render(mode=mode)  # just raise an exception
+
+    def get_action_meanings(self):
+        return [
+            'look_left',
+            'look_right',
+            'strafe_left',
+            'strafe_right',
+            'forward',
+            'backward'
+        ]
 
