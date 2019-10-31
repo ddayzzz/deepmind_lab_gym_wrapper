@@ -56,7 +56,6 @@ class DeepmindLabEnvironment(gym.Env):
         self.enable_velocity = enable_velocity
         self.enable_depth = enable_depth
         self.frame_skip = frame_skip
-
         # check arguments is current?
         # config the observation_space
         basic_obs = []
@@ -141,13 +140,12 @@ class DeepmindLabEnvironment(gym.Env):
         rgb = self.lab.observations()['RGB_INTERLEAVED']
         if mode == 'rgb_array':
             return rgb
-        elif mode is 'human':
+        elif mode == 'human':
             # pop up a window and render
-            from gym.envs.classic_control import rendering
-            if self.viewer is None:
-                self.viewer = rendering.SimpleImageViewer()
-            self.viewer.imshow(rgb)
-            return self.viewer.isopen
+            import cv2
+            convrt_bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)  # TODO deepmind lab has builtin BGR observation space
+            cv2.imshow('deepmind lab', convrt_bgr)
+            cv2.waitKey(1)
         else:
             super(DeepmindLabEnvironment, self).render(mode=mode)  # just raise an exception
 
