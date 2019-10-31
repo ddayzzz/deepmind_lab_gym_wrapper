@@ -85,9 +85,11 @@ class DeepmindLabEnvironment(gym.Env):
         self.observation_space = spaces.Box(0, 255, shape=[84, 84, 3], dtype=np.uint8)
         #
         self.last_observation = None
+        # seed
+        self.seed()
 
     def reset(self, **kwargs):
-        self.lab.reset()
+        self.lab.reset(seed=self.np_random.choice(2147483647))  # max of int32
         obs = self.lab.observations()
         self.last_observation, _ = self._get_state(obs)
         return self.last_observation
@@ -135,6 +137,10 @@ class DeepmindLabEnvironment(gym.Env):
     def close(self):
         self.lab.close()
         # print("lab environment stopped, returned ", 0)
+
+    def seed(self, seed=None):
+        self.np_random, seed = seeding.np_random(seed)
+        return [seed]
 
     def render(self, mode='human'):
         rgb = self.lab.observations()['RGB_INTERLEAVED']
