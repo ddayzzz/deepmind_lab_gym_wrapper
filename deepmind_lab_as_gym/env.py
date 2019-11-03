@@ -4,6 +4,7 @@ from gym import spaces
 from gym.utils import seeding
 import numpy as np
 import deepmind_lab
+import cv2
 
 
 def _action(*entries):
@@ -27,21 +28,26 @@ DEFAULT_ACTION = _action(0, 0, 0, 0, 0, 0, 0)
 
 
 class DeepmindLabEnvironment(gym.Env):
-    metadata = {'render.modes': ['rgb_array', 'human']}
+    metadata = {'render.modes': ['rgb_array', 'rgbd_array', 'human']}
 
     def __init__(self,
                  level,
+                 height=84,
+                 width=84,
                  frame_skip=4,
+                 channel_first=False,
                  enable_velocity=False,
                  enable_top_down_view=False,
                  top_down_width=160,
                  top_down_height=160,
                  enable_depth=False,
+                 fps=60,
                  **kwargs):
         """
 
         :param level: level for deepmind lab
         :param frame_skip:
+        :param channel_first: this will change the observation_space.
         :param enable_velocity:
         :param enable_top_down_view:
         :param top_down_width:
@@ -56,18 +62,26 @@ class DeepmindLabEnvironment(gym.Env):
         self.enable_velocity = enable_velocity
         self.enable_depth = enable_depth
         self.frame_skip = frame_skip
+        self.channel_first = channel_first
         # check arguments is current?
         # config the observation_space
         basic_obs = []
         if enable_depth:
-            basic_obs.append('RGBD_INTERLEAVED')
+            if channel_first:
+                basic_obs.append('RGBD')
+            else:
+                basic_obs.append('RGBD_INTERLEAVED')
         else:
-            basic_obs.append('RGB_INTERLEAVED')
+            if channel_first:
+                basic_obs.append('RGB')
+            else:
+                basic_obs.append('RGB_INTERLEAVED')
         config = {
-            'fps': str(60),
-            'width': str(84),
-            'height': str(84),
+            'fps': str(fps),
+            'width': str(width),
+            'height': str(height),
         }
+        self._obs_key = basic_obs[0]
         if enable_top_down_view:
             basic_obs.extend(['DEBUG.CAMERA.TOP_DOWN', 'DEBUG.POS.TRANS', ])
             config.update(maxAltCameraWidth=str(top_down_width), maxAltCameraHeight=str(top_down_height),
@@ -82,7 +96,16 @@ class DeepmindLabEnvironment(gym.Env):
         # action_space
         self.action_space = gym.spaces.Discrete(len(ACTION_LIST))
         # observation_space
-        self.observation_space = spaces.Box(0, 255, shape=[84, 84, 3], dtype=np.uint8)
+        if enable_depth:
+            if channel_first:
+                self.observation_space = spaces.Box(0, 255, shape=[4, height, width], dtype=np.uint8)
+            else:
+                self.observation_space = spaces.Box(0, 255, shape=[height, width, 4], dtype=np.uint8)
+        else:
+            if channel_first:
+                self.observation_space = spaces.Box(0, 255, shape=[3, height, width], dtype=np.uint8)
+            else:
+                self.observation_space = spaces.Box(0, 255, shape=[height, width, 3], dtype=np.uint8)
         #
         self.last_observation = None
         # seed
@@ -96,19 +119,19 @@ class DeepmindLabEnvironment(gym.Env):
 
     def _get_state(self, obs):
         returned = dict()
-        if self.enable_depth:
-            rgb_state = obs['RGBD_INTERLEAVED'][:, :, :3]
-            returned['depth'] = obs['RGBD_INTERLEAVED'][:, :, 3]
-        else:
-            rgb_state = obs['RGB_INTERLEAVED']
-
+        # if self.enable_depth:
+        #     rgb_state = obs['RGBD_INTERLEAVED'][:, :, :3]
+        #     returned['depth'] = obs['RGBD_INTERLEAVED'][:, :, 3]
+        # else:
+        #     rgb_state = obs['RGB_INTERLEAVED']
+        rgb_or_rgbd = obs[self._obs_key]
         if self.enable_top_down_view:
             returned['top_down'] = obs['DEBUG.CAMERA.TOP_DOWN']
             returned['word_position'] = obs['DEBUG.POS.TRANS']
 
         if self.enable_velocity:
             returned['velocity'] = np.concatenate([obs['VEL.TRANS'], obs['VEL.ROT']])
-        return rgb_state, returned
+        return rgb_or_rgbd, returned
 
     def step(self, action):
         """
@@ -142,15 +165,30 @@ class DeepmindLabEnvironment(gym.Env):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
+    def _prepare_for_rgb(self, img):
+        if self.channel_first:
+            if self.enable_depth:
+                img = img[:3, :, :]  # delete depth
+            img = np.transpose(img, axes=[1, 2, 0])  # to RGB
+        else:
+            if self.enable_depth:
+                img = img[:, :, :3]
+        return img
+
     def render(self, mode='human'):
-        rgb = self.lab.observations()['RGB_INTERLEAVED']
+        rgb_or_rgbd = self.lab.observations()[self._obs_key]
         if mode == 'rgb_array':
-            return rgb
+            return self._prepare_for_rgb(img=rgb_or_rgbd)
+        elif mode == 'rgbd_array':
+            assert self.enable_depth, 'please enable depth output when initialize the object'
+            if self.channel_first:
+                rgb_or_rgbd = np.transpose(rgb_or_rgbd, axes=[1, 2, 0])  # channel first to RGBD
+            return rgb_or_rgbd
         elif mode == 'human':
             # pop up a window and render
-            import cv2
-            convrt_bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)  # TODO deepmind lab has builtin BGR observation space
-            cv2.imshow('deepmind lab', convrt_bgr)
+            img = self._prepare_for_rgb(rgb_or_rgbd)
+            img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)  # TODO deepmind lab has builtin BGR observation space
+            cv2.imshow('deepmind lab', img)
             cv2.waitKey(1)
         else:
             super(DeepmindLabEnvironment, self).render(mode=mode)  # just raise an exception

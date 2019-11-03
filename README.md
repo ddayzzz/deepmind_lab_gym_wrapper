@@ -23,9 +23,18 @@ Optional Arguments|Effects|Extra observation key name(s)
 -|-|-
 enable_velocity|Output agent's current velocity|**velocity**
 enable_top_down_view|Output debug top down view|**top_down** and **word_position**
-enable_depth|Depth channel|**depth**
+
+The following parameters combination will change the `observation_space`:
+
+`enable_depth`|`channel_first`|Effect to `observation_space`
+-|-|-
+True|False|`Box(height,width,4), uint8`
+True|True|`Box(4,height,width)`
+False|False|`Box(height,width,3), uint8`
+False|True|`Box(3,height,width), uint8`
 
 You can also specify other arguments when call `gym.make` and their usage can be found in Deepmind lab documents.
+
 ## Action and observation space:
 
 ```python
@@ -33,14 +42,13 @@ env = gym.make('DeepmindLabNavMazeStatic01-v0', enable_velocity=True, enable_top
 ```
 Action space is `Discrete(6)`
 
-Observation space is `Box(84,84,3), uint8`
+Observation space depens on the combination of parameters `channel_first` and `enable_depth`
 
 Key name in `info`|observation
 -|-
 velocity|`Box(1,6), float`. I concatenate `VEL.TRANS` and `VEL.ROT` from the inner observation output.
-top_down|`Box(top_down_width, top_down_height, 3)`, `uint8`. It comes from a debug observation named `DEBUG.CAMERA.TOP_DOWN`
+top_down|`Box(top_down_height, top_down_width, 3)`, `uint8`. It comes from a debug observation named `DEBUG.CAMERA.TOP_DOWN`
 word_position|`Box(1, 3), float` from `DEBUG.POS.TRANS`
-depth|`Box(84,84), uint8`. I slice the inner observation `RGBD_INTERLEAVED` at last axis
 
 
 ## Support environments
@@ -68,6 +76,9 @@ python setup.py install  # for users
 # Thanks
 
 - [jkulhanek/gym-deepmindlab-env](https://github.com/jkulhanek/gym-deepmindlab-env)
+
+# References
+
 - [Deepmind lab: Python API](https://github.com/deepmind/lab/blob/master/docs/users/python_api.md)
 - [Deepmind lab: Debug observation](https://github.com/deepmind/lab/blob/master/docs/users/observations.md#debug-observations-player-only)
 - [Deepmind lab: Custom observations](https://github.com/deepmind/lab/blob/master/docs/users/observations.md#custom-observations-player-only)
