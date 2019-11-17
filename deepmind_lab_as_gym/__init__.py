@@ -24,3 +24,5 @@ for key, l in MAP.items():
         entry_point='deepmind_lab_as_gym.env:DeepmindLabEnvironment',
         kwargs=dict(level=l)
     )
+# register a deepmind standard environment, users need pass the proper arguments when use it
+register(id='DeepmindLab-v0', entry_point='deepmind_lab_as_gym.env:DeepmindLabEnvironment')

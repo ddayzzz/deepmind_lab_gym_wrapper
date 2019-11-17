@@ -44,15 +44,15 @@ class DeepmindLabEnvironment(gym.Env):
                  fps=60,
                  **kwargs):
         """
-
+        Create a deepmind lab environment
         :param level: level for deepmind lab
         :param frame_skip:
         :param channel_first: this will change the observation_space.
-        :param enable_velocity:
+        :param enable_velocity: velocity
         :param enable_top_down_view:
         :param top_down_width:
         :param top_down_height:
-        :param kwargs:
+        :param kwargs: the optional config for deepmind lab
         """
         super(DeepmindLabEnvironment, self).__init__()
         # 相关的属性
@@ -88,7 +88,8 @@ class DeepmindLabEnvironment(gym.Env):
                           hasAltCameras='true')
         if enable_velocity:
             basic_obs.extend(['VEL.TRANS', 'VEL.ROT'])  # 速度
-
+        # 添加其他参数给 config
+        config.update(**kwargs)
         env = deepmind_lab.Lab(level,
                                basic_obs,
                                config=config)
