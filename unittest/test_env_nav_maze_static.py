@@ -13,30 +13,33 @@ import deepmind_lab_as_gym
 
 class TestNavMaze(unittest.TestCase):
 
-    def _init_env(self, env_name, **kwargs):
-        env = gym.make(id=env_name)
+    def _init_env(self, level):
+        env = gym.make(id='DeepmindLabNavEnv-v0', level=level)
         return env
 
     def test_process(self):
-        env_names = ['DeepmindLabNavMazeStatic01-v0', 'DeepmindLabNavMazeStatic03-v0']
+        env_names = ['nav_maze_static_01', 'nav_maze_random_goal_01']
         max_episodes = 1
         for i, env_name in enumerate(env_names):
             print('Test: ', env_name)
-            env = self._init_env(env_name=env_name)
+            env = self._init_env(level=env_name)
             episodes = 0
             try:
                 while episodes < max_episodes:
-                    env.reset()
+                    last_frame = env.reset()
                     episodic_reward = 0.0
                     time = 0
                     for t in count():
                         env.render()
                         action = np.random.choice(env.action_space.n)
 
-                        obs, reward, terminal, _ = env.step(action)
+                        obs, reward, terminal, info = env.step(action)
+                        self.assertTrue(id(last_frame) != id(obs))
+                        last_frame = obs
                         episodic_reward += reward
                         if terminal:
                             time = t
+                            self.assertTrue(obs is None)
                             break
                     print('time: {}, episodic reward: {}'.format(time, episodic_reward))
                     episodes += 1
