@@ -18,7 +18,7 @@ class TestNavMaze(unittest.TestCase):
         return env
 
     def test_process(self):
-        env_names = ['nav_maze_static_01', 'nav_maze_random_goal_01']
+        env_names = ['nav_maze_static_01', 'nav_maze_random_goal_03']
         max_episodes = 1
         for i, env_name in enumerate(env_names):
             print('Test: ', env_name)
@@ -39,7 +39,7 @@ class TestNavMaze(unittest.TestCase):
                         episodic_reward += reward
                         if terminal:
                             time = t
-                            self.assertTrue(obs is None)
+                            self.assertTrue(obs is not None)
                             break
                     print('time: {}, episodic reward: {}'.format(time, episodic_reward))
                     episodes += 1

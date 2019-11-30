@@ -17,22 +17,21 @@ class DeepmindLabEnvironment(gym.Env):
     def __init__(self,
                  level,
                  configs,
-                 observaion_keys,
+                 observation_keys,
                  height=84,
                  width=84,
                  frame_skip=4,
                  fps=60,
                  ):
         """
-        Create a deepmind lab environment
-        :param level: level for deepmind lab
-        :param frame_skip:
-        :param channel_first: this will change the observation_space.
-        :param enable_velocity: velocity
-        :param enable_top_down_view:
-        :param top_down_width:
-        :param top_down_height:
-        :param kwargs: the optional config for deepmind lab
+        Create the deepmind lab environment with level
+        :param level: level
+        :param configs: config
+        :param observation_keys: available observations
+        :param height: height for RGB observation
+        :param width: width for RGB observation
+        :param frame_skip: frame skip
+        :param fps:
         """
         super(DeepmindLabEnvironment, self).__init__()
         # 相关的属性
@@ -46,7 +45,7 @@ class DeepmindLabEnvironment(gym.Env):
         }
         config.update(configs)
         env = deepmind_lab.Lab(level,
-                               observaion_keys,
+                               observation_keys,
                                config=config)
         self.lab = env
 
@@ -78,7 +77,10 @@ class DeepmindLabEnvironment(gym.Env):
 
 
 class DeepmindLabMazeNavigationEnvironment(DeepmindLabEnvironment):
+
+    # Define the Navigation-like deepmind lab environments
     metadata = {'render.modes': ['rgb_array', 'rgbd_array', 'human']}
+    # gym-like action space
     ACTION_LIST = [
         _action(-20, 0, 0, 0, 0, 0, 0),  # look_left
         _action(20, 0, 0, 0, 0, 0, 0),  # look_right
@@ -95,7 +97,17 @@ class DeepmindLabMazeNavigationEnvironment(DeepmindLabEnvironment):
     DEFAULT_ACTION = _action(0, 0, 0, 0, 0, 0, 0)
 
     def __init__(self, level, width=84, height=84, frame_skip=4, fps=60, enable_depth=False, other_configs=None, other_obs=None):
-        # set the config
+        """
+        Navigation task
+        :param level:
+        :param width:
+        :param height:
+        :param frame_skip:
+        :param fps:
+        :param enable_depth:
+        :param other_configs:
+        :param other_obs:
+        """
         configs = dict()
         if other_configs is not None:
             configs.update(other_configs)
@@ -110,7 +122,7 @@ class DeepmindLabMazeNavigationEnvironment(DeepmindLabEnvironment):
         self._enable_depth = enable_depth
         super(DeepmindLabMazeNavigationEnvironment, self).__init__(level=level,
                                                                    configs=configs,
-                                                                   observaion_keys=obs,
+                                                                   observation_keys=obs,
                                                                    height=height,
                                                                    width=width,
                                                                    frame_skip=frame_skip,
@@ -168,7 +180,7 @@ class DeepmindLabMazeNavigationEnvironment(DeepmindLabEnvironment):
         reward = self.lab.step(real_action, num_steps=self.frame_skip)
         terminated = not self.lab.is_running()
         if terminated:
-            state, info = self.last_state, dict()  # just use the last observation
+            state, info = np.copy(self.last_state), dict()  # just use the last observation
         else:
             obs = self.lab.observations()
             state = obs[self._obs_key]
