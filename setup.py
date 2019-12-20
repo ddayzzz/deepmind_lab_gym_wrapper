@@ -23,7 +23,7 @@ setuptools.setup(
         "gym",
         "numpy",
         "opencv-python",
-        "opencv-contrib-python",
+        # "opencv-contrib-python",
         "DeepMind-Lab"
     ],
 )
