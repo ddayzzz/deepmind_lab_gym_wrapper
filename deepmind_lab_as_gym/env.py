@@ -2,7 +2,7 @@
 import abc
 import gym
 from gym import spaces
-from gym.utils import seeding
+from pygame import locals
 import numpy as np
 import deepmind_lab
 import cv2
@@ -80,6 +80,25 @@ class DeepmindLabMazeNavigationEnvironment(DeepmindLabEnvironment):
 
     # Define the Navigation-like deepmind lab environments
     metadata = {'render.modes': ['rgb_array', 'rgbd_array', 'human']}
+    # action: keys, meanings
+    # 定义的是基于导航任务的相关参数
+    NAV_ACTION_MEANING = {
+        0: "look_left",
+        1: "look_right",
+        2: "strafe_left",
+        3: "strafe_right",
+        4: "forward",
+        5: "backward"
+    }
+
+    NAV_KEY_TO_ACTION = {
+        (locals.K_4,): 0,
+        (locals.K_6,): 1,
+        (locals.K_LEFT,): 2,
+        (locals.K_RIGHT,): 3,
+        (locals.K_UP,): 4,
+        (locals.K_DOWN,): 5
+    }
     # gym-like action space
     ACTION_LIST = [
         _action(-20, 0, 0, 0, 0, 0, 0),  # look_left
@@ -136,14 +155,7 @@ class DeepmindLabMazeNavigationEnvironment(DeepmindLabEnvironment):
         self.last_state = None
 
     def get_action_meanings(self):
-        return [
-            'look_left',
-            'look_right',
-            'strafe_left',
-            'strafe_right',
-            'forward',
-            'backward'
-        ]
+        return [self.NAV_ACTION_MEANING[i] for i in range(0, self.action_space.n)]
 
     def _prepare_for_rgb(self, img):
         if self._enable_depth:
@@ -195,3 +207,11 @@ class DeepmindLabMazeNavigationEnvironment(DeepmindLabEnvironment):
         state = np.copy(obs[self._obs_key])
         self.last_state = state
         return state
+
+    @staticmethod
+    def get_keys_to_action():
+        """
+        for playing
+        :return:
+        """
+        return DeepmindLabMazeNavigationEnvironment.NAV_KEY_TO_ACTION
